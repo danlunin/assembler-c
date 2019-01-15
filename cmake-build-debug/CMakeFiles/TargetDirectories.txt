@@ -1,0 +1,5 @@
+C:/mingw64/CLionProjects/Assembler/cmake-build-debug/CMakeFiles/edit_cache.dir
+C:/mingw64/CLionProjects/Assembler/cmake-build-debug/CMakeFiles/ASM.dir
+C:/mingw64/CLionProjects/Assembler/cmake-build-debug/CMakeFiles/VM.dir
+C:/mingw64/CLionProjects/Assembler/cmake-build-debug/CMakeFiles/check.dir
+C:/mingw64/CLionProjects/Assembler/cmake-build-debug/CMakeFiles/rebuild_cache.dir
