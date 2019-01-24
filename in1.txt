@@ -1,0 +1,12 @@
+ in R0L
+ mov R0H #65
+ mov R1X R0X
+ mov R2X R1X
+ mov R3X R2X
+ mov R4X R3X
+ mov R5X R4X
+ mov R6X R5X
+ mov R7X R6X
+ out R6L
+ out R6H
+ reset

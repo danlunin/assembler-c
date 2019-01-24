@@ -1,14 +1,29 @@
- je testlabel R2X
- je testlabel R2X
-testlabel: mov R1X R2X
- mov R1X (R3X)
- mov R4X (R6X)
- mov (R5X) R6X
- push R5X
- pop R5X
- call #120
- mul R7X R5X
- and R5X R5X
-testlabel: mov R1X R2X  
- or R6X R3X 
- xor R5X R3X
+ in R0L
+ mov R0H #0
+ mov R5L #10
+ mov R6L #48
+ mov R2X R0X
+ mov R3X R2X
+ mov R4L #0
+ mov R1L #1
+ mov R7L #100
+loop:
+ mov R2X R3X
+ div R2X R5X
+ mul R2X R5X
+ sub R3X R2X
+ add R3X R6X
+ push R3X
+ add R4X R1X
+ mov R3X R2X
+ div R3X R5X
+ je print R3X
+ jmp loop
+print:
+ pop R3X
+ out R3L
+ sub R4X R1X
+ je exit R4X
+ jmp print
+exit:
+ reset
