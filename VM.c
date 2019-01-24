@@ -2,136 +2,8 @@
 #include <string.h>
 #include <stdlib.h>
 #include <io.h>
-
-enum Command{Mov, Mov1, Mov2, Mov3, Push, Pop, Call, Ret, Add, Sub, Mul, Div, And, Or, Xor, Not, Shl, Shr, Reset,
-    Nop, Jmp, Je, Jne, In, Out};
-
-
-struct argument
-{
-    unsigned int value;
-};
-
-struct rule
-{
-    enum Command command;
-    struct argument argument1;
-    struct argument argument2;
-    char label[20];
-    int contains_label;
-};
-
-
-void get_substring(unsigned int size, unsigned int offset, char* string, char * substr) {
-    int c = 0 ;
-    while (c < size) {
-        substr[c] = string[offset+c];
-        c++;
-    }
-    substr[c] = '\0';
-}
-
-int get_substr_and_convert_to_int(unsigned int size, unsigned int offset, char* string) {
-    char substr[10 + size];
-    get_substring(size, offset, string, substr);
-    char *ptr;
-    long gettt = strtol(substr, &ptr, 2);
-    return gettt;
-}
-
-void decode_whole_rule(struct rule *com, int firstSize, int firstOffset, int secondSize, int secondOffset,
-                       enum Command command, char *line) {
-    com->argument1.value = get_substr_and_convert_to_int(firstSize, firstOffset, line);
-    com->command = command;
-    com->argument2.value = get_substr_and_convert_to_int(secondSize, secondOffset, line);
-    //printf("Command: %d, Arg1: %d, Arg2: %d\n", com->command, com->argument1.value, com->argument2.value);
-
-}
-
-void decode_command(struct rule *com, char * line) {
-    printf("Line: %s\n", line);
-    if (line[0] == '1' && line[1] == '1') {
-        decode_whole_rule(com, 8, 4, 4, 12, Je, line);
-    } else if (line[0] == '0' && line[1] == '1') {
-        decode_whole_rule(com, 8, 4, 4, 12, Jne, line);
-    } else if (line[0] == '1' && line[1] == '0') {
-        decode_whole_rule(com, 4, 4, 8, 8, Mov3, line);
-    } else {
-        switch (get_substr_and_convert_to_int(8, 0, line)) {
-            case 0:
-                decode_whole_rule(com, 4, 8, 4, 12, Mov, line);
-                break;
-            case 1:
-                decode_whole_rule(com, 4, 8, 4, 12, Mov1, line);
-                break;
-            case 2:
-                decode_whole_rule(com, 4, 8, 4, 12, Mov2, line);
-                break;
-            case 4:
-                decode_whole_rule(com, 4, 8, 0, 12, Push, line);
-                break;
-            case 5:
-                decode_whole_rule(com, 4, 8, 0, 12, Pop, line);
-                break;
-            case 6:
-                decode_whole_rule(com, 8, 8, 0, 0, Call, line);
-                break;
-            case 7:
-                //decode_whole_rule(com, 8, 8, 0, 0, Call, line);
-                break;
-            case 8:
-                decode_whole_rule(com, 4, 8, 4, 12, Add, line);
-                break;
-            case 9:
-                decode_whole_rule(com, 4, 8, 4, 12, Sub, line);
-                break;
-            case 10:
-                decode_whole_rule(com, 4, 8, 4, 12, Mul, line);
-                break;
-            case 11:
-                decode_whole_rule(com, 4, 8, 4, 12, Div, line);
-                break;
-            case 12:
-                decode_whole_rule(com, 4, 8, 4, 12, And, line);
-                break;
-            case 13:
-                decode_whole_rule(com, 4, 8, 4, 12, Or, line);
-                break;
-            case 14:
-                decode_whole_rule(com, 4, 8, 4, 12, Xor, line);
-                break;
-            case 15:
-                decode_whole_rule(com, 4, 8, 0, 12, Not, line);
-                break;
-            case 16:
-                //decode_whole_rule(com, 4, 8, 0, 12, Not, line);
-                break;
-            case 17:
-                //decode_whole_rule(com, 4, 8, 0, 12, Not, line);
-                break;
-            case 18:decode_whole_rule(com, 0, 0, 0, 0, Reset, line);
-                break;
-            case 19:
-                //decode_whole_rule(com, 0, 0, 0, 0, Reset, line);
-                break;
-            case 20:
-                //decode_whole_rule(com, 4, 8, 0, 12, Not, line);
-                break;
-            case 21:
-                //decode_whole_rule(com, 4, 8, 0, 12, Not, line);
-                break;
-            case 22:
-                //decode_whole_rule(com, 4, 8, 0, 12, Not, line);
-                break;
-            case 23:
-                decode_whole_rule(com, 5, 8, 0, 0, In, line);
-                break;
-            case 24:
-                decode_whole_rule(com, 5, 8, 0, 0, Out, line);
-                break;
-        }
-    }
-}
+#include <math.h>
+#include "mainFunctions.h"
 
 void read_source_from_file(char *buffer, FILE *fp, long lSize) {
     if( 1!=fread( buffer , lSize, 1 , fp) )
@@ -147,215 +19,293 @@ long get_file_size(FILE *fp) {
     return  lSize;
 }
 
-void extract_whole_register_value(int *registers, struct rule* com, int result) {
-    registers[2*com->argument1.value] = result / 256;
-    registers[2*com->argument1.value + 1] = result - registers[2*com->argument1.value];
-}
+/*int get_register_value(int *registers, int reg_num) {
+    return registers[2*reg_num]*256 + registers[2*reg_num+1];
+}*/
 
-int calculate(int *registers, struct rule* com, char operation) {
+
+
+int calculate_one_register(int *registers, struct rule* com, char operation, int i, int is_ip) {
     int value1;
-    int value2;
-    value1 = registers[2*com->argument1.value]*256 + registers[2*com->argument1.value+1];
-    value2 = registers[2*com->argument2.value]*256 + registers[2*com->argument2.value+1];
+    if (is_ip) {
+        value1 = i;
+    } else {
+        value1 = registers[2*com->argument1.value]*256 + registers[2*com->argument1.value+1];
+    }
     switch (operation) {
-        case '+':
-            return value1 + value2;
-        case '-':
-            return value1 - value2;
-        case '*':
-            return value1 * value2;
-        case '/':
-            return value1 + value2;
-        case '&':
-            return value1 & value2;
+        case '<':
+            return value1 << com->argument2.value;
+        case '>':
+            return value1 >> com->argument2.value;
+        case '`':
+            return ~value1;
         case '|':
-            return value1 | value2;
-        case 'X':
-            return value1 ^ value2;
+            return value1 + com->argument1.value;
     }
 
     return 0;
 }
 
-void execute_operation(int *registers, struct rule* com, char operation) {
-    int result = calculate(registers, com, operation);
-    extract_whole_register_value(registers, com, result);
-}
-
-void move_value_from_second_address(int *registers, int value1, int value2) {
-    //printf(" XXX ");
-    //printf(" %d ", registers[2*value1]*256 + 2*value1 + 1);
-    //char p = *(char*)0xff73000;
-    //char *p = registers[2*value1]*256 + 2*value1 + 1;
-    registers[2*value2] = 1;//p[0];
-    registers[2*value2 + 1] =1;// p[1];
-}
-
-void print_registers_states(int *registers) {
-    for (int i=0; i< 8; ++i) {
-        printf("R%dH: %d ", i, registers[2*i]);
-        printf("R%dL: %d ", i, registers[2*i+1]);
-
-    }
-    printf("\n");
-}
-
-void apply_instruction(struct rule *com, int *registers) {
-    print_registers_states(registers);
+int apply_instruction(struct rule *com, int *registers, char* memory, int i, int *finished, int process_number) {
+    //printf("Proccess: %d ", process_number);
+    //print_registers_states(registers);
     char one_byte;
+    int result;
     switch (com->command){
         case Je:
-            printf("JE to %d\n", com->argument1.value);
+            //printf("JE to %d\n", com->argument1.value);
             if (registers[2*com->argument2.value] == 0 && registers[2*com->argument2.value + 1] == 0) {
                 //JMP
-                printf("JMP to %d\n", com->argument1.value);
+                i = calculate_one_register(registers, com, '|', i, 1) - 1;
+                //printf("JE JMP to %d\n", com->argument1.value);
             }
             break;
         case Jne:
-            printf("JE to %d\n", com->argument1.value);
+            //printf("JNE to %d\n", com->argument1.value);
             if (registers[2*com->argument2.value] != 0 && registers[2*com->argument2.value + 1] != 0) {
+                i = calculate_one_register(registers, com, '|', i, 1) - 1;
                 //JMP
-                printf("JMP to %d\n", com->argument1.value);
+                //printf("JNE JMP to %d\n", com->argument1.value);
             }
             break;
         case Mov:
             registers[2*com->argument1.value] = registers[2*com->argument2.value];
             registers[2*com->argument1.value + 1] = registers[2*com->argument2.value + 1];
-            printf("MOV to %d from %d\n", com->argument1.value, com->argument2.value);
+            //printf("MOV to %d from %d\n", com->argument1.value, com->argument2.value);
             break;
         case Mov1:
-            move_value_from_second_address(registers, com->argument2.value, com->argument1.value);
-            printf("MOV1 to %d from %d\n", com->argument2.value, com->argument1.value);
+            memcpy(&registers[com->argument1.value], &memory[com->argument2.value], 2);
+            //move_value_from_second_address(registers, com->argument1.value, com->argument2.value, memory);
+            //printf("MOV1 to %d from %d\n", com->argument2.value, com->argument1.value);
             break;
         case Mov2:
-            move_value_from_second_address(registers, com->argument1.value, com->argument2.value);
-            printf("MOV2 to %d from %d\n", com->argument2.value, com->argument1.value);
+            memcpy(&memory[com->argument1.value], &registers[com->argument1.value], 2);
+            //printf("MOV2 to %d from %d\n", com->argument2.value, com->argument1.value);
             break;
         case Mov3:
             registers[com->argument1.value] = com->argument2.value;
-            //registers[2*com->argument2.value + 1] = registers[2*com->argument1.value + 1];
-            printf("MOV3 imm %d to %d\n", com->argument2.value, com->argument1.value);
+           //printf("MOV3 imm %d to %d\n", com->argument2.value, com->argument1.value);
             break;
         case Push:
-            registers[7*2 + 1] -= 1;
-            //mov (R7X) RiX.
-            printf("PUSH: %d\n", com->argument1.value);
+            result = 256*registers[7*2] + registers[7*2+1] - 2;
+            extract_whole_register_value(registers, 7, result);
+            memory[result] = registers[2*com->argument1.value];
+            memory[result + 1] = registers[2*com->argument1.value + 1];
+            //("PUSH: %d, Stack pointer: %d\n", com->argument1.value, result);
             break;
         case Pop:
-            registers[7*2 + 1] ++;
-            //mov RiX (R7X), R7X++
-            printf("POP: %d\n", com->argument1.value);
+            result = 256*registers[7*2] + registers[7*2 + 1];
+            registers[2*com->argument1.value] = memory[result];
+            registers[2*com->argument1.value + 1] = memory[result + 1];
+            result += 2;
+            extract_whole_register_value(registers, 7, result);
+           //("POP: %d, Stack pointer: %d\n", com->argument1.value, result);
             break;
         case Call:
-            registers[7*2 + 1] -= 1;
-            //mov (R7X) IP
-            registers[8*2 + 1] += com->argument1.value;
-            printf("CALL: %d\n", com->argument1.value);
-            break;
+            //Extract stack pointer
+            result = 256*registers[7*2] + registers[7*2 + 1] - 2;
+            //Update stack pointer
+            extract_whole_register_value(registers, 7, result);
+            //Push ip value on stack
+            div_t res_div = div(i, 256);
+            memory[result] = res_div.quot;
+            memory[result + 1] = res_div.rem;
+            //printf("Pushing ip value: %d %d\n", result, result+1);
+            //Increase ip by x
+            i += com->argument1.value - 1;
+            //printf("Call: %d, Stack pointer: %d\n", com->argument1.value, result);
+            return i;
         case Ret:
-            registers[7*2 + 1] ++;
-            //mov IP (R7X), R7X++
-            printf("RET: %d\n", com->argument1.value);
-            break;
+            //Extract ip
+            result = 256*registers[7*2] + registers[7*2 + 1];
+
+            //printf("Popping ip value: %d %d\n", result, result+1);
+            i = 256*memory[result] + memory[result + 1];
+            //Increase sp
+            result += 2;
+            //Update sp
+            extract_whole_register_value(registers, 7, result);
+            //printf("RET: %d Stack pointer: %d To: %d\n", com->argument1.value, result, i);
+            return i;
         case Add:
             execute_operation(registers, com, '+');
-            printf("ADD to %d from %d\n", com->argument2.value, com->argument1.value);
+            //printf("ADD to %d from %d\n", com->argument2.value, com->argument1.value);
             break;
         case Sub:
             execute_operation(registers, com, '-');
-            printf("SUB to %d from %d\n", com->argument2.value, com->argument1.value);
+            //printf("SUB to %d from %d\n", com->argument2.value, com->argument1.value);
             break;
         case Mul:
             execute_operation(registers, com, '*');
-            printf("MUL to %d from %d\n", com->argument2.value, com->argument1.value);
+            //printf("MUL to %d from %d\n", com->argument2.value, com->argument1.value);
             break;
         case Div:
+            if (registers[com->argument2.value*2] * 256 + registers[com->argument2.value*2 +1 ] == 0) {
+                fprintf(stderr, "Division by zero. Process: %d", process_number);
+                finished[process_number] = 1;
+                return i;
+            }
             execute_operation(registers, com, '/');
-            printf("DIV to %d from %d\n", com->argument2.value, com->argument1.value);
+            //printf("DIV to %d from %d\n", com->argument2.value, com->argument1.value);
             break;
         case And:
             execute_operation(registers, com, '&');
-            printf("AND to %d from %d\n", com->argument2.value, com->argument1.value);
+            //printf("AND to %d from %d\n", com->argument2.value, com->argument1.value);
             break;
         case Or:
             execute_operation(registers, com, '|');
-            printf("OR to %d from %d\n", com->argument2.value, com->argument1.value);
+            //printf("OR to %d from %d\n", com->argument2.value, com->argument1.value);
             break;
         case Xor:
             execute_operation(registers, com, 'X');
-            printf("XOR to %d from %d\n", com->argument2.value, com->argument1.value);
+            //printf("XOR to %d from %d\n", com->argument2.value, com->argument1.value);
             break;
         case In:
-            printf("In block Register: %d\n", com->argument1.value);
+            //printf("In block Register: %d\n", com->argument1.value);
+            //fgets(&one_byte, 1, stdin);
             read(STDIN_FILENO, &one_byte, 1);
             registers[com->argument1.value] = one_byte;
-            printf("STDIN: %d to: %d \n", one_byte, com->argument1.value);
+            //printf("STDIN: %d to: %d \n", one_byte, com->argument1.value);
             break;
         case Out:
             printf("%d \n", registers[com->argument1.value]);
-            printf("STDOUT: %d \n", registers[com->argument1.value]);
+            //printf("STDOUT: %d \n", registers[com->argument1.value]);
             break;
         case Reset:
-            printf("Exit code: %d\n", registers[15]);
-            exit(registers[1]);
+            //printf("%d\n", registers[1]);
+            fprintf(stderr, "%d", registers[1]);
+            finished[process_number] = 1;
+            break;
         case Not:
-            //TO DO
+            result = calculate_one_register(registers, com, '~', i, 0);
+            extract_whole_register_value(registers, com->argument1.value, result);
+            //printf("BITWISE NO to %d \n", com->argument1.value);
             break;
         case Shl:
-        case Shr:
-        case Nop:
-        case Jmp:
+            result = calculate_one_register(registers, com, '<', i, 0);
+            extract_whole_register_value(registers, com->argument1.value, result);
+            //printf("SHL to %d from %d\n", com->argument1.value, com->argument2.value);
             break;
-
+        case Shr:
+            result = calculate_one_register(registers, com, '>', i, 0);
+            extract_whole_register_value(registers, com->argument1.value, result);
+            //printf("SHR to %d from %d\n", com->argument1.value, com->argument2.value);
+            break;
+        case Jmp:
+            i = calculate_one_register(registers, com, '|', i, 1) - 1;
+            //printf("JMP to %d\n", com->argument1.value);
+        case Nop:
+            break;
+        case Cmpxchg:
+            result = 256*registers[2*com->argument1.value] + registers[2*com->argument1.value + 1];
+            int second_register = 256*registers[2*com->argument2.value] + registers[2*com->argument2.value + 1];
+            if (memory[result] == second_register) {
+                memcpy(&memory[result], &registers[com->argument3.value], 2);
+                memcpy(&registers[com->argument3.value], &registers[com->argument2.value], 2);
+            }
+            //printf("CMPXCHG  R(%dX) R%dX R%dX\n", com->argument1.value, com->argument2.value, com->argument3.value);
     }
+    return i;
 }
 
-void initialize_registers(int *registers) {
-    for (size_t id = 0; id < 18; ++id) {
-        registers[id] = 0;
+int all_proccesses_are_finished(int *finished, int number_of_proccesses) {
+    for (int i = 0; i < number_of_proccesses; ++i) {
+        if (!finished[i])
+            return 0;
     }
+    //printf("\nAll proccesses are finished");
+    return 1;
 }
 
-void launch_interpretation(char *file_path, long offset, long number_of_steps) {
-    int registers[18];
-    FILE *f_in;
+void launch_interpretation(char **file_paths, long *offsets, long number_of_steps, int number_of_proccesses,
+        int max_per_proccess) {
+    int registers[number_of_proccesses][16];
+
+    int proccesses_indicies[number_of_proccesses];
+    int counters[number_of_proccesses];
+    int finished[number_of_proccesses];
+    int sizes[number_of_proccesses];
+    char memory[65536];
+    FILE *f_in[number_of_proccesses];
     struct rule com;
-    char substr[16];
-    char *buffer;
-    int i = 0;
-    initialize_registers(registers);
-    f_in = fopen( file_path, "r" );
-    int size = get_file_size(f_in);
-    buffer = (char*)calloc( 1, size+1 );
-    //read_source_from_file( &buffer[1000], f_in, size);
-    read_source_from_file( &buffer[offset], f_in, size);
-    int counter = 0;
-    while (size != 0) {
-        if (number_of_steps !=0 && counter >= number_of_steps) {
-            exit(0);
-        }
-        size -= 16;
-        get_substring(16, i, buffer, substr);
-        i += 16;
-        decode_command(&com, substr);
-        apply_instruction(&com, registers);
-        ++counter;
+    char command_binary_high[8+1];
+    char command_binary_low[8+1];
+    for (int i = 0; i < number_of_proccesses; ++i) {
+        initialize_registers(registers[i]);
+        f_in[i] = fopen( file_paths[i], "rb" );
+        sizes[i] = get_file_size(f_in[i]);
+        //printf("Init address %d: %ld\n", i, offsets[i]);
+        //printf("File size %d \n", sizes[i]);
+        //printf("File name %s \n", file_paths[i]);
+        read_source_from_file( &memory[offsets[i]], f_in[i], sizes[i]);
+        finished[i] = 0;
+        proccesses_indicies[i] = 0;
+        counters[i] = 0;
+
+        extract_whole_register_value(registers[i], 7, offsets[i]);
     }
-    fclose(f_in);
+    while (!all_proccesses_are_finished(finished, number_of_proccesses)) {
+        for (int proccess = 0; proccess < number_of_proccesses; ++proccess) {
+            int k = 0;
+            while (proccesses_indicies[proccess] <= (sizes[proccess]/2) && counters[proccess] < number_of_steps
+                && k < max_per_proccess && !finished[proccess]) {
+                ++k;
+                //printf("Ip: %d, Proccess: %d Counter: %d Size of instructions: %d\n", proccesses_indicies[proccess],
+                //        proccess, counters[proccess], sizes[proccess]);
+                if (number_of_steps != 0 && counters[proccess] >= number_of_steps) {
+                    finished[proccess] = 1;
+                    break;
+                }
+                get_binary_with_current_length(8, memory[offsets[proccess]+2*proccesses_indicies[proccess]],
+                        command_binary_high);
+                get_binary_with_current_length(8, memory[offsets[proccess]+2*proccesses_indicies[proccess] + 1],
+                        command_binary_low);
+                //printf("Command binary high: %s\n", command_binary_high);
+                //printf("Command binary low: %s\n", command_binary_low);
+                char *result = malloc(strlen(command_binary_high) + strlen(command_binary_low) + 1);
+                strcpy(result, command_binary_high);
+                strcat(result, command_binary_low);
+                decode_command(&com, result);
+                proccesses_indicies[proccess] = apply_instruction(&com, registers[proccess], memory,
+                        proccesses_indicies[proccess], finished, proccess);
+                ++counters[proccess];
+                proccesses_indicies[proccess] += 1;
+            }
+            if (finished[proccess])
+                break;
+            if (proccesses_indicies[proccess] >= (sizes[proccess]/2)) {
+                finished[proccess] = 1;
+                //printf("Instruction pointer reached the end of the program. Process: %d\n", proccess);
+            }
+            if ( counters[proccess] >= number_of_steps && number_of_steps != 0){
+                finished[proccess] = 1;
+                //printf("Limit of steps is reached. Limit: %ld Process: %d\n", number_of_steps, proccess);
+            }
+
+
+        }
+    }
+
+    for (int i = 0; i < number_of_proccesses; ++i) {
+        fclose(f_in[i]);
+    }
 }
 
 int main(int argc, char *argv[]) {
-    /*if (argc != 4) {
-        exit(1);
-    }
+
     char *p;
-    long offset = strtol(argv[3], &p, 10);
     long number_of_comands = strtol(argv[1], &p, 10);
-    launch_interpretation(argv[2], offset, number_of_comands);
-    return 0;*/
-    char *p;
-    long offset = 0;
-    long number_of_comands =100;
-    launch_interpretation("out.txt", offset, number_of_comands);
+    long offsets[(argc-2)/2];
+    char** filePaths;
+    filePaths = malloc(argc * sizeof *filePaths);
+    //printf("Numbers of pr: %d\n", (argc-2)/2);
+    for (int i = 0; i < (argc-2)/2; ++i) {
+        offsets[i] = strtol(argv[3+2*i], &p, 10);
+        //printf("Offset of pr: %ld\n", offsets[i]);
+        filePaths[i] = malloc(strlen(argv[2 + 2*i])+1);
+        strcpy(filePaths[i], argv[2 + 2*i]);
+        //printf("Path of pr: %s\n", filePaths[i]);
+    }
+    launch_interpretation(filePaths, offsets, number_of_comands, (argc-2)/2, 10);
     return 0;
 }
